@@ -14,32 +14,34 @@ class CountOnesBinSearch(CountGraph):
     def multiply_until_filled_cpu(self) -> tuple[str, str, int]:
         def is_filled(matrix):
             return np.all(matrix == 1)
-
+        matrices = dict()
         current_matrix = self._adj_matrix.copy()
         steps = 1
+
         start_time = time.time()
 
         while not is_filled(current_matrix):
-            next_matrix = np.minimum(np.dot(current_matrix, self._adj_matrix), 1)
+            next_matrix = np.minimum(np.dot(current_matrix,current_matrix), 1)
+            matrices.update({steps: current_matrix})
             if is_filled(next_matrix):
                 break
             current_matrix = next_matrix
             steps *= 2
 
-        low, high = steps // 2, steps
-        while low < high:
-            mid = (low + high) // 2
-            temp_matrix = self._adj_matrix.copy()
-            for _ in range(mid):
-                temp_matrix = np.minimum(np.dot(temp_matrix, self._adj_matrix), 1)
-
+        minSteps = steps
+        result = steps * 2
+        steps = steps // 2
+        while steps > 0:
+            temp_matrix =  np.minimum(np.dot(current_matrix,matrices[steps]), 1)
             if is_filled(temp_matrix):
-                high = mid
+                result = minSteps + steps
             else:
-                low = mid + 1
+                minSteps += steps
+                current_matrix = temp_matrix
+            steps = steps // 2
 
         end_time = time.time() - start_time
-        return "cpu", f"{end_time:.3f} ms", low+1
+        return "cpu", f"{end_time:.3f} ms", result
 
 
 
@@ -51,33 +53,34 @@ class CountOnesBinSearch(CountGraph):
         def is_filled(matrix):
             return tf.reduce_all(matrix == 1).numpy()
 
+        matrices = dict()
         current_matrix = adj_matrix_tf
         steps = 1
         start_time = time.time()
 
         while not is_filled(current_matrix):
-            next_matrix = tf.minimum(tf.linalg.matmul(current_matrix, adj_matrix_tf), 1)
+            next_matrix = tf.minimum(tf.linalg.matmul(current_matrix, current_matrix), 1)
+            matrices.update({steps: current_matrix})
             if is_filled(next_matrix):
                 break
             current_matrix = next_matrix
             steps *= 2
-
-        low, high = steps // 2, steps
-        while low < high:
-            mid = (low + high) // 2
-            temp_matrix = adj_matrix_tf
-            for _ in range(mid):
-                temp_matrix = tf.minimum(tf.linalg.matmul(temp_matrix, adj_matrix_tf), 1)
-
+        minSteps = steps
+        result = steps * 2
+        steps = steps // 2
+        while steps > 0:
+            temp_matrix = tf.minimum(tf.linalg.matmul(current_matrix,matrices[steps]), 1)
             if is_filled(temp_matrix):
-                high = mid
+                result = minSteps + steps
             else:
-                low = mid + 1
+                minSteps += steps
+                current_matrix = temp_matrix
+            steps = steps // 2
 
         end_time = time.time()
         gpu_time = end_time - start_time
 
-        return "gpu", f"{gpu_time:.3f} ms", low+1
+        return "gpu", f"{gpu_time:.3f} ms", result
 
 
 

@@ -7,6 +7,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random
 
+from tensorflow.python.ops.summary_ops_v2 import graph
+
 
 class GraphGenerator:
     def __init__(self, nodes: int = 10, edge_prob: float = 0.3, seed: int = 42,graph_type: str = "random", new : bool = True):
@@ -22,6 +24,7 @@ class GraphGenerator:
             self._G = nx.Graph()
         self._add_self_loops()
     def _generate_graph(self) -> nx.Graph:
+
         match self._graph_type:
             case "random":
                 G = nx.erdos_renyi_graph(self._nodes, self._edge_prob, seed=self._seed)
@@ -29,14 +32,21 @@ class GraphGenerator:
                 side = int(self._nodes ** 0.5)
                 G = nx.grid_2d_graph(side, side)
             case "tree":
-                G = nx.balanced_tree(r=2, h=int(self._nodes**0.5))
+                G = nx.balanced_tree(r=2, h=int(self._nodes ** 0.5))
             case "complete":
                 G = nx.complete_graph(self._nodes)
             case _:
                 raise ValueError("Unknown graph type. Choose from: random, grid, tree, complete.")
+        components = list(nx.connected_components(G))
+        num_components = len(components)
+        if num_components > 1:
+            representative_nodes = [list(comp)[0] for comp in components]
 
+            for i in range(1, num_components):
+                G.add_edge(representative_nodes[i - 1], representative_nodes[i])
+
+            print("✅ All components merged into a single connected graph!")
         return G
-
     def _add_self_loops(self) -> None:
         for node in self._G.nodes():
             if not self._G.has_edge(node, node):
@@ -98,4 +108,36 @@ class GraphGenerator:
         graph._G.add_edges_from(data["edges"])
 
         print(f"Graph loaded from {filename}")
+        return graph
+
+    @staticmethod
+    def load_graph_stanford(filename: str) -> GraphGenerator:
+        """Loads a graph from a Stanford Large Network Dataset Collection formatted TXT file."""
+
+        G = nx.Graph()
+
+        with open(filename, "r") as f:
+            for line in f:
+                if line.startswith("#"):
+                    continue  # Ignorujemy linie komentarza
+                parts = line.strip().split()
+                if len(parts) == 2:
+                    node1, node2 = map(int, parts)
+                    G.add_edge(node1, node2)
+
+        # Informacja o wczytanym grafie
+        num_nodes = G.number_of_nodes()
+        num_edges = G.number_of_edges()
+        print(f"✅ Loaded Stanford graph with {num_nodes} nodes and {num_edges} edges.")
+
+        # Tworzymy obiekt GraphGenerator z wczytanym grafem
+        graph = GraphGenerator(
+            nodes=num_nodes,
+            edge_prob=1.,
+            seed=-1,
+            graph_type="random",
+            new=False
+        )
+
+        graph._G = G
         return graph

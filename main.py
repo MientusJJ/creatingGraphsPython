@@ -5,9 +5,9 @@ from generate_graphs import GraphGenerator
 
 if __name__ == "__main__":
     nodes = 100
-    edge_prob = 0.1
+    edge_prob = 0.003
 
-    graph = GraphGenerator(nodes, edge_prob,42,"random")
+    graph = GraphGenerator.load_graph_stanford("D:\\Program Files\\Magisterka\\Grafy\\stanford\\test.txt")
     ones = CountOnes(graph.get_graph())
     print(ones.multiply_until_filled_cpu())
     onesBS  = CountOnesBinSearch(graph.get_graph())
