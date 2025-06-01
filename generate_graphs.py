@@ -94,13 +94,14 @@ class GraphGenerator:
     def _generate_dag(self) -> nx.DiGraph:
         G = nx.DiGraph()
         nodes = list(range(self._nodes))
-        random.shuffle(nodes)
         G.add_nodes_from(nodes)
 
         for i in range(self._nodes):
             from_node = nodes[i]
             candidates = nodes[i + 1 :]
-            num_edges = int(len(candidates) * self._edge_prob)
+            num_edges = (
+                max(1, int(len(candidates) * self._edge_prob)) if candidates else 0
+            )
             targets = random.sample(candidates, min(num_edges, len(candidates)))
             for to_node in targets:
                 G.add_edge(from_node, to_node)

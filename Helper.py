@@ -27,6 +27,8 @@ Graphs = {
     7: "graph_dag_nodes=1000_p=0.50_seed=69.json",
     8: "graph_dag_nodes=10000_p=0.30_seed=42.json",
     9: "graph_path_dag_nodes=10_p=0.30_seed=42.json",
+    10: "graph_dag_nodes=10_p=0.10_seed=48.json",
+    11: "graph_dag_nodes=10_p=0.50_seed=54.json",
 }
 
 Primes = {
@@ -85,52 +87,26 @@ def show_adjacency_tensor(
     else:
         adj_matrix = adj_tensor.numpy()
     adj_matrix = (adj_matrix != 0).astype(int)
-    plt.figure(figsize=(10, 8))
-    plt.imshow(adj_matrix, cmap="Blues", interpolation="none")
-    plt.title(title, fontsize=14)
-    plt.xlabel("Wierzchołki")
-    plt.ylabel("Wierzchołki")
-    plt.colorbar(label="Połączenie")
+
+    n = adj_matrix.shape[0]
+    fig, ax = plt.subplots(figsize=(10, 8))
+    im = ax.imshow(adj_matrix, cmap="Blues", interpolation="none", zorder=0)
+
+    # Ustawienia osi
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticks(np.arange(-0.5, n, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+
+    # Siatka
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, zorder=1)
+    ax.tick_params(which='minor', bottom=False, left=False)
+
+    # Opisy
+    ax.set_title(title, fontsize=14)
+    ax.set_xlabel("Wierzchołki")
+    ax.set_ylabel("Wierzchołki")
+
+    fig.colorbar(im, ax=ax, label="Połączenie")
     plt.tight_layout()
     plt.show()
-
-
-import torch
-
-
-def modular_inverse_scalar(a: int, p: int) -> int:
-    if a == 0:
-        raise ValueError("Inverse does not exist for 0")
-    t, new_t = 0, 1
-    r, new_r = p, a
-    while new_r != 0:
-        quotient = r // new_r
-        t, new_t = new_t, t - quotient * new_t
-        r, new_r = new_r, r - quotient * new_r
-    if r > 1:
-        raise ValueError("a is not invertible")
-    return t + p if t < 0 else t
-
-
-def modular_inverse_matrix_gpu(matrix: torch.Tensor, p: int) -> torch.Tensor:
-    assert matrix.device.type == "cuda"
-    if matrix.dtype.is_floating_point:
-        matrix = matrix.round().to(torch.int64)
-
-    assert matrix.dtype in (torch.int32, torch.int64), "Matrix must be integer type"
-    n = matrix.size(0)
-    A = matrix.clone()
-    I = torch.eye(n, dtype=matrix.dtype, device=matrix.device)
-
-    for i in range(n):
-        inv = modular_inverse_scalar(int(A[i, i].item()), p)
-        A[i] = (A[i] * inv) % p
-        I[i] = (I[i] * inv) % p
-
-        for j in range(n):
-            if i != j:
-                factor = A[j, i].clone()
-                A[j] = (A[j] - factor * A[i]) % p
-                I[j] = (I[j] - factor * I[i]) % p
-
-    return I
