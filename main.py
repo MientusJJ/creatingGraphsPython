@@ -13,6 +13,8 @@ import torch
 import os
 import psutil
 
+from optimized_multiplication import multiply_sparse_cols_C
+
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -31,7 +33,7 @@ if __name__ == "__main__":
     # PRZECZYTAJ:
     # file: // / C: / Users / HardPC / Downloads / dynamic - transitive - closure - via - dynamic - matrix - inverse - extended - a.pdf
     # strona 4
-    graphIndex = 11
+    graphIndex = 12
     graph = GraphGenerator.load_graph(Graphs[graphIndex])
     graph_dynamic = DynamicReachAbility(graph.get_graph())
     # for i in range(0,10):
@@ -40,13 +42,21 @@ if __name__ == "__main__":
     i = 0
     j = 4
 
-    print(f"{(i, j)}: {str(graph_dynamic.find_path(i, j)).lower()}")
-    show_adjacency_tensor(graph_dynamic._graph_n_adj)
-    tensor = torch.zeros(10, device="cuda", dtype=torch.float64)
-    tensor[0:1] = 1
-    print(tensor)
-    graph_dynamic.update_one_row_or_col(tensor, 4, "col")
-    print(f"{(i, j)}: {str(graph_dynamic.find_path(i, j)).lower()}")
+    multiply_sparse_cols_C(
+        graph_dynamic.sparse_transposed_indicator_tensor(),
+        graph_dynamic._graph_n_adj,
+        graph_dynamic._p,
+    )
+
+    # tensor[2:3] = 1.0
+    # graph_dynamic.find_path(1,2)
+    # print(f"{(i, j)}: {str(graph_dynamic.find_path(i, j)).lower()}")
+    # show_adjacency_tensor(graph_dynamic._graph_n_adj)
+    # tensor = torch.zeros(10, device="cuda", dtype=torch.float64)
+    # tensor[0:1] = 1
+    # print(tensor)
+    # graph_dynamic.update_one_row_or_col(tensor, 4, "col")
+    # print(f"{(i, j)}: {str(graph_dynamic.find_path(i, j)).lower()}")
 
     # graph_dynamic._update_matrix()
     # print(f"{(i, j)}: {str(graph_dynamic.find_path(i, j)).lower()}")

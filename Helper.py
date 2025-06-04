@@ -29,6 +29,7 @@ Graphs = {
     9: "graph_path_dag_nodes=10_p=0.30_seed=42.json",
     10: "graph_dag_nodes=10_p=0.10_seed=48.json",
     11: "graph_dag_nodes=10_p=0.50_seed=54.json",
+    12: "testgraph.json",
 }
 
 Primes = {
@@ -99,8 +100,8 @@ def show_adjacency_tensor(
     ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
 
     # Siatka
-    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, zorder=1)
-    ax.tick_params(which='minor', bottom=False, left=False)
+    ax.grid(which="minor", color="gray", linestyle="-", linewidth=0.5, zorder=1)
+    ax.tick_params(which="minor", bottom=False, left=False)
 
     # Opisy
     ax.set_title(title, fontsize=14)
