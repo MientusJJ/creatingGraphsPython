@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import tensorflow as tf
 import networkx as nx
@@ -16,7 +18,7 @@ class CountOnesBinSearch(CountGraph):
     ):
         super().__init__(graph, enum)
 
-    def multiply_until_filled_cpu(self) -> tuple[str, str, int, int]:
+    def multiply_until_filled_cpu(self) -> tuple[str, str, int,int]:
         def is_filled(matrix):
             return not np.any(matrix != 1)
 
@@ -53,6 +55,7 @@ class CountOnesBinSearch(CountGraph):
             "cpu",
             f"{end_time:.3f} ms",
             result,
+            mults,
         )
 
     @requires_gpu

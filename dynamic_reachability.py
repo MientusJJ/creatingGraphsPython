@@ -15,14 +15,18 @@ from Helper import (
     Primes,
     size_of_cell,
     np_array_to_tensor_mapping,
-    mapping_row_columns, show_adjacency_tensor,
+    mapping_row_columns,
+    show_adjacency_tensor,
 )
 from count_graph import CountGraph
 from gpu_checker import requires_gpu
 from optimized_multiplication import (
     pow_number,
-    optimized_matmul_single_left,
-    optimized_matmul_single_right, optimized_sparse_matmul_C, optimized_sparse_matmul_sparse_D,
+    apply_single_column_update,
+    apply_single_row_update,
+    multiply_sparse_cols_C,
+    multiply_sparse_rows_D,
+    modular_inverse_matrix_gpu,
 )
 
 
@@ -41,11 +45,12 @@ class DynamicReachAbility(CountGraph):
         self._col_row_to_change_flag = -1
         self._row_to_change: List[torch.Tensor] = []
         self._m_matrix = self._create_matrix_from_scratch(self._adj_tensor.shape[0], 0)
-        # self._max_changes = int(math.sqrt(self._graph.number_of_nodes()))
-        self._max_changes = 2
+        self._max_changes = int(math.sqrt(self._graph.number_of_nodes()))
         self._p = Primes[type_of_data]
-        self._set_numbers_in_matrix()
-        self._graph_n_adj = self._pow_matrix(self._graph.number_of_nodes())
+        #self._set_numbers_in_matrix()
+        self._graph_n_adj = self._pow_matrix(self._graph.number_of_nodes(),self._adj_tensor)
+        self._sherman_map_of_changes: dict[Tuple[int, int] : float] = dict()
+        self._sherman_flag = -1
         self._tol = 1e-8
         # print(self._graph_n_adj)
 
@@ -56,16 +61,17 @@ class DynamicReachAbility(CountGraph):
                 if self._adj_tensor[i][j] != 0:
                     self._adj_tensor[i][j] = random.randint(1, self._p - 1)
 
-    def _pow_matrix(self, n: int) -> torch.tensor:
+    def _pow_matrix(self, n: int, tensor : torch.tensor) -> torch.tensor:
         curr_state = 1
 
         eye = torch.eye(
-            self._adj_tensor.shape[0],
+            tensor.shape[0],
             device="cuda",
             dtype=np_array_to_tensor_mapping(self._type_of_data),
         )
-        base = self._adj_tensor.clone()
-        result = self._adj_tensor.clone()
+        tensor = tensor + eye
+        base = tensor.clone()
+        result = tensor.clone()
         while curr_state < n:
             result = torch.matmul(result, (eye + base) % self._p) % self._p
             base = torch.matrix_power(base, 2) % self._p
@@ -87,8 +93,7 @@ class DynamicReachAbility(CountGraph):
             if axis is None:
                 invalid_axis = -1
         elif isinstance(axis, int):
-            if axis not in {0, 1}:
-                invalid_axis = -1
+            invalid_axis = axis if axis in {0, 1} else -1
         else:
             invalid_axis = -1
         return invalid_axis
@@ -104,18 +109,38 @@ class DynamicReachAbility(CountGraph):
         self._add_primes_to_vector(new_data)
         self._update_matrix()
         bx = self._inverse_one_vector(new_data, indx, axis, False)
+        print(bx.shape)
         if axis == 0:
-            self._graph_n_adj = optimized_matmul_single_right(
-                self._graph_n_adj, bx, indx, self._p, False
+            self._graph_n_adj = apply_single_row_update(
+                self._graph_n_adj, indx, bx, self._p
             )
         elif axis == 1:
-            self._graph_n_adj = optimized_matmul_single_left(
-                bx, indx,self._graph_n_adj, self._p, True
-            )
 
+            self._graph_n_adj = apply_single_column_update(
+                self._graph_n_adj, indx, bx, self._p
+            )
+    def _prepare_new_new_data(self,new_data: torch.Tensor, indx: int, axis: int) -> torch.Tensor | None:
+        if axis == 0:
+            a_i = self._adj_tensor[indx, :]
+            a_i = a_i - new_data
+            new_data = a_i.view(1,-1).matmul(self._graph_n_adj) % self._p
+            new_data = new_data.squeeze()
+            self._adj_tensor[indx, :] = self._adj_tensor[indx, :] - new_data
+            self._adj_tensor[indx, :] = (self._adj_tensor[indx, :] + self._p) % self._p
+        elif axis == 1:
+           a_i = self._adj_tensor[:, indx]
+           print(a_i.shape)
+           a_i = a_i - new_data
+           new_data = self._graph_n_adj.matmul(a_i.view(-1, 1)) % self._p
+           new_data = new_data.squeeze()
+           self._adj_tensor[:, indx] = self._adj_tensor[:, indx] - new_data
+           self._adj_tensor[:, indx] = (self._adj_tensor[:, indx]+self._p) % self._p
+        return new_data.squeeze()
     def _inverse_one_vector(
         self, new_data: torch.Tensor, indx: int, axis: int, cell=True
     ):
+        new_data = self._prepare_new_new_data(new_data, indx, axis)
+
         bi = new_data[indx].item() + 1
         denom = pow_number(bi, self._p - 2, self._p)
         new_data = new_data.to(np_array_to_tensor_mapping(self._type_of_data))
@@ -128,11 +153,9 @@ class DynamicReachAbility(CountGraph):
                 val = (val + self._p) % self._p
                 bx[j] = val
         if axis == 0:
-            bx = bx.view(1, -1)
             if cell:
                 self._col_row_to_change_flag = 0
         else:
-            bx = bx.view(-1, 1)
             if cell:
                 self._col_row_to_change_flag = 1
         return bx
@@ -147,7 +170,9 @@ class DynamicReachAbility(CountGraph):
     ):
         if not isinstance(new_data, torch.Tensor):
             raise TypeError("new_data must be a torch.Tensor.")
-        if len(self._row_to_change) > 0 and self._col_row_to_change_flag != axis:
+        if (new_data > 0).sum() > 1:
+            raise ValueError("Więcej niż jedna wartość dodatnia w tensorze!")  # to rzuci błąd
+        if self._check_non_zeros() > 0 and self._col_row_to_change_flag != axis:
             self._update_matrix()
 
         axis = self._check_axis(axis)
@@ -157,33 +182,40 @@ class DynamicReachAbility(CountGraph):
         bx = self._inverse_one_vector(new_data, indx, axis, True)
 
         if axis == 1:
-            self._m_matrix = optimized_matmul_single_left(
-                bx, indx, self._m_matrix, self._p, True
+            self._m_matrix = apply_single_column_update(
+                self._m_matrix,
+                indx,
+                bx,
+                self._p,
             )
         elif axis == 0:
-            self._m_matrix = optimized_matmul_single_right(
-                self._m_matrix, bx, indx, self._p, False
-            )
+            self._m_matrix = apply_single_row_update(self._m_matrix, indx, bx, self._p)
+        bx[indx] = (bx[indx] - 1) % self._p
         if axis == 0:
-            bx[0, indx] = (bx[0, indx] - 1) % self._p
+            # print(bx.shape, bx.dim())
+            # print(self._m_matrix.shape,self._m_matrix.dim())
+            self._m_matrix[indx, :] = (self._m_matrix[indx, :] + bx) % self._p
         else:
-            bx[indx, 0] = (bx[indx, 0] - 1) % self._p
-        if axis == 0:
-            #print(bx.shape, bx.dim())
-            #print(self._m_matrix.shape,self._m_matrix.dim())
-            self._m_matrix[indx, :] = (self._m_matrix[indx, :] + bx[0, :]) % self._p
-        else:
-            self._m_matrix[:, indx] = (self._m_matrix[:, indx] + bx[:, 0]) % self._p
-        nonzero_rows = (self._m_matrix.abs().sum(dim=1) > self._tol).sum().item()
-
-        nonzero_cols = (self._m_matrix.abs().sum(dim=0) > self._tol).sum().item()
-        if nonzero_cols > self._max_changes or nonzero_rows > self._max_changes:
+            self._m_matrix[:, indx] = (self._m_matrix[:, indx] + bx) % self._p
+        if self._check_non_zeros() == 2:
             self._update_matrix()
 
+    def _check_non_zeros(self) -> int:
+        nonzero_rows = (self._m_matrix.abs().sum(dim=1) > self._tol).sum().item()
+        nonzero_cols = (self._m_matrix.abs().sum(dim=0) > self._tol).sum().item()
+
+        if nonzero_cols > self._max_changes or nonzero_rows > self._max_changes:
+            return 2
+        if nonzero_rows > 0 or nonzero_cols > 0:
+            return 1
+        return 0
+
     def _add_primes_to_vector(self, data: torch.Tensor) -> None:
-        for i in range(data.size(0)):
-            if data[i].item() != 0:
-                data[i] = random.randint(1, self._p - 1)
+        return
+        #TEST
+        # for i in range(data.size(0)):
+        #     if data[i].item() != 0:
+        #         data[i] = random.randint(1, self._p - 1)
 
     def _powik(self, base: torch.Tensor, power: int) -> torch.Tensor:
         res = torch.zeros(
@@ -210,9 +242,105 @@ class DynamicReachAbility(CountGraph):
             dtype=np_array_to_tensor_mapping(self._type_of_data),
         )
         adj_matrix.add_(eye)
-        if  self._col_row_to_change_flag == 1:
-            adj_matrix = optimized_sparse_matmul_C(adj_matrix,eye, self._graph_n_adj + eye, self._p)
+
+        if self._col_row_to_change_flag == 1:
+            adj_matrix = multiply_sparse_cols_C(adj_matrix, self._graph_n_adj, self._p)
         else:
-            adj_matrix = optimized_sparse_matmul_sparse_D(self._graph_n_adj,eye, adj_matrix + eye, self._p)
-        show_adjacency_tensor(adj_matrix)
+
+            adj_matrix = multiply_sparse_rows_D(adj_matrix, self._graph_n_adj, self._p)
         return adj_matrix
+
+    def sherman_method_add_one_cell(self, i: int, j: int, value: float):
+        if (i, j) in self._sherman_map_of_changes:
+            self._sherman_map_of_changes[(i, j)] += value % self._p
+        else:
+            self._sherman_map_of_changes[(i, j)] = value
+
+    def update_matrix_adj_tensor_I_minus_A_pow_minus_1(self):
+        for key, val in self._sherman_map_of_changes.items():
+            i, j = key
+            if val == 0:
+                self._adj_tensor[i, j] = 0
+            else:
+                self._adj_tensor[i, j] = random.randint(1, self._p - 1)
+
+        self._graph_n_adj = self._pow_matrix(self._graph.number_of_nodes(),self._adj_tensor)
+        self._sherman_map_of_changes = dict()
+
+    def sparse_dict_to_sparse_tensor(self, device: str = "cuda") -> torch.Tensor:
+        indices = torch.tensor(
+            list(self._sherman_map_of_changes.keys()), dtype=torch.long
+        ).T
+        values = torch.tensor(
+            list(self._sherman_map_of_changes.values()),
+            dtype=np_array_to_tensor_mapping(self._type_of_data),
+        )
+        sparse_tensor = torch.sparse_coo_tensor(
+            indices,
+            values,
+            size=(self._adj_tensor.shape[0], self._adj_tensor.shape[0]),
+            device=device,
+        )
+        return sparse_tensor
+
+    def sparse_transposed_indicator_tensor(self, device: str = "cuda") -> torch.Tensor:
+        keys = list(self._sherman_map_of_changes.keys())
+        indices = torch.tensor(keys, dtype=torch.long).T
+        transposed_indices = indices[[1, 0], :]  # (j, i)
+        values = torch.ones(
+            transposed_indices.shape[1],
+            dtype=np_array_to_tensor_mapping(self._type_of_data),
+            device=device,
+        )
+        n = self._adj_tensor.shape[0]
+
+        return torch.sparse_coo_tensor(
+            transposed_indices,
+            values,
+            size=(self._adj_tensor.shape[0], self._adj_tensor.shape[0]),
+            device=device,
+        ).coalesce()
+
+    def sherman_morisson(self):
+        for (i, j), val in self._sherman_map_of_changes.items():
+            self._sherman_map_of_changes[(i, j)] = (
+                val - self._graph_n_adj[i, j].item() + self._p
+            ) % self._p
+        eye = torch.eye(
+            self._adj_tensor.shape[0],
+            device="cuda",
+            dtype=np_array_to_tensor_mapping(self._type_of_data),
+        )
+        U = self.sparse_transposed_indicator_tensor()
+        V = self.sparse_dict_to_sparse_tensor()
+        t1 = multiply_sparse_rows_D(self._graph_n_adj, U, self._p)
+        t2 = multiply_sparse_cols_C(V, t1, self._p)
+        t3 = modular_inverse_matrix_gpu((eye + t2) % self._p, self._p)
+        t4 = multiply_sparse_cols_C(V, self._graph_n_adj, self._p)
+        t2 = multiply_sparse_rows_D(t3, t4, self._p)
+        t4 = multiply_sparse_cols_C(t1, t2, self._p)
+        self._graph_n_adj = ((self._graph_n_adj - t4) + self._p) % self._p
+        #     t1 = torch.matmul(self._graph_n_adj, matrix_col)
+        #     t1 = (t1 % self._p + self._p) % self._p
+        #
+        #     t2 = torch.matmul(matrix_row, t1)
+        #     t2 = (t2 % self._p + self._p) % self._p
+        #
+        #     eye = torch.eye(
+        #         self._adj_tensor.shape[0],
+        #         device="cuda",
+        #         dtype=np_array_to_tensor_mapping(self._type_of_data),
+        #     )
+        #
+        #     t3 = eye + t2
+        #     t3 = (t3 % self._p + self._p) % self._p
+        #     t3 = modular_inverse_matrix_gpu(t3, self._p)
+        #
+        #     t4 = torch.matmul(t1, t3)
+        #     t4 = (t4 % self._p + self._p) % self._p
+        #
+        #     t5 = torch.matmul(t4, matrix_row)
+        #     t5 = (t5 % self._p + self._p) % self._p
+        #
+        #     self._graph_n_adj.sub_(t5)
+        #     self._graph_n_adj = (self._graph_n_adj % self._p + self._p) % self._p

@@ -30,6 +30,8 @@ Graphs = {
     10: "graph_dag_nodes=10_p=0.10_seed=48.json",
     11: "graph_dag_nodes=10_p=0.50_seed=54.json",
     12: "testgraph.json",
+    13: "graph_random_nodes=50_p=0.30_seed=42.json",
+    14: "testgraphMagisterka.json"
 }
 
 Primes = {
