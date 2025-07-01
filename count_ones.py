@@ -44,5 +44,5 @@ class CountOnes(CountGraph):
             steps += 1
 
         elapsed = (time.time() - start_time) * ms
-        print(steps+1)
+        print(steps + 1)
         return "gpu (torch)", f"{elapsed:.3f} ms", steps + 1, steps
