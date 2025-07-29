@@ -85,26 +85,26 @@ class DynamicReachAbility(Dynamic):
         return new_data2.squeeze()
 
     def _prepare_new_data_one_cell(
-        self, new_data: torch.Tensor, indx: int, axis: int
+        self, new_data: torch.Tensor, indx: int, i: int
     ) -> torch.Tensor | None:
         a_i = self._adj_tensor[:, indx]
-        a_i = new_data - a_i
+        a_i[i] = (new_data - a_i[i] + self._p) % self._p
         a_i = dense_to_sparse(a_i.view(-1, 1))
         new_data2 = multiply_sparse_rows_D(self._graph_n_adj, a_i, self._p)
         adj_matrix = self._m_matrix.clone()
         eye = self._eye(self._adj_tensor.shape[0])
         adj_matrix.add_(eye)
         new_data2 = torch.matmul(adj_matrix, new_data2) % self._p
-        self._adj_tensor[:, indx] = (self._adj_tensor[:, indx] + new_data).clamp_(0, 1)
+        self._adj_tensor[i, indx] = (self._adj_tensor[i, indx] + new_data).clamp_(0, 1)
         return new_data2.squeeze()
 
     def _inverse_one_vector(
-        self, new_data: torch.Tensor, indx: int, axis: int, cell=True
+        self, new_data: torch.Tensor |int, indx: int, axis: int, cell : int | bool = False
     ) -> torch.Tensor:
         if cell is False:
             new_data = self._prepare_new_new_data(new_data, indx, axis)
         else:
-            new_data = self._prepare_new_data_one_cell(new_data, indx, axis)
+            new_data = self._prepare_new_data_one_cell(new_data, indx,cell)
         bi = new_data[indx].item() + 1
         denom = pow_number(bi, self._p - 2, self._p)
         new_data = new_data.to(np_array_to_tensor_mapping(self._type_of_data))
@@ -132,7 +132,7 @@ class DynamicReachAbility(Dynamic):
     def update_one_cell(self, i: int, j: int, value: Any):
         new_data = self._zeros(self._adj_tensor.shape[0])
         new_data[i] = value
-        bx = self._inverse_one_vector(new_data, j, 1, True)
+        bx = self._inverse_one_vector(value, j, 1, i)
         adj_matrix = self._m_matrix.clone()
         eye = self._eye(self._adj_tensor.shape[0])
         adj_matrix.add_(eye)
