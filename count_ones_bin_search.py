@@ -53,7 +53,7 @@ class CountOnesBinSearch(CountGraph):
         end_time = ms * (time.time() - start_time)
         return (
             "cpu",
-            f"{end_time:.3f} ms",
+            f"{end_time:.3f}",
             result,
             mults,
         )
@@ -101,4 +101,4 @@ class CountOnesBinSearch(CountGraph):
         end_time = time.time()
         gpu_time = (end_time - start_time) * ms
 
-        return "gpu", f"{gpu_time:.3f} ms", result, mults
+        return "gpu", f"{gpu_time:.3f}", result, mults

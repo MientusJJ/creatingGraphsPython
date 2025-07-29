@@ -102,7 +102,6 @@ class Dynamic(CountGraph, ABC):
 
     def _add_primes_to_vector(self, data: torch.Tensor) -> None:
         return
-        # TEST
         # for i in range(data.size(0)):
         #     if data[i].item() != 0:
         #         data[i] = random.randint(1, self._p - 1)

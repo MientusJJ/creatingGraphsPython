@@ -1,5 +1,6 @@
+import os
 from enum import Enum
-from typing import TypeAlias
+from typing import TypeAlias, Callable, Any
 
 import numpy as np
 import torch
@@ -33,8 +34,20 @@ Graphs = {
     13: "graph_random_nodes=50_p=0.30_seed=42.json",
     14: "testgraphMagisterka.json",
     15: "pusty.json",
+    16: "graph_dag_nodes=5000_p=0.70_seed=42.json",
 }
-
+GraphsTriangles = {
+    0: "graph_random_nodes=50_p=0.30_seed=42.json",
+    1: "graph_random_nodes=1000_p=0.30_seed=42.json",
+    2: "graph_random_nodes=10000_p=0.30_seed=42.json",
+    3: "graph_random_nodes=5000_p=0.30_seed=42.json",
+    4: "graph_random_nodes=400_p=0.30_seed=42.json",
+    5: "graph_random_nodes=200_p=0.30_seed=42.json",
+    6: "graph_random_nodes=2500_p=0.30_seed=42.json",
+    7: "graph_random_nodes=100_p=0.30_seed=42.json",
+    8: "graph_random_nodes=15000_p=0.30_seed=42.json",
+}
+GraphsOnes = {}
 Primes = {
     "16": 43,
     "32": 4093,
@@ -114,3 +127,74 @@ def show_adjacency_tensor(
     fig.colorbar(im, ax=ax, label="Połączenie")
     plt.tight_layout()
     plt.show()
+
+
+def comparison_and_plot(
+    vertex: int,
+    prob: float,
+    name: str,
+    dir: str,
+    file_name: str,
+    func_cpu: Callable[..., Any],
+    func_gpu: Callable[..., Any],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
+    filepath = os.path.join(dir, file_name)
+    cpu_time = float(func_cpu()[1])
+    try:
+        gpu_time = float(func_gpu()[1])
+    except RuntimeError as e:
+        print(f"GPU not available: {e}")
+        gpu_time = None
+
+    labels = ["Graph " + file_name]
+    cpu_times = [cpu_time]
+    gpu_times = [gpu_time]
+
+    x = np.arange(len(labels))  # pozycje na osi X
+    width = 0.35  # szerokość słupków
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    rects1 = ax.bar(x - width / 2, cpu_times, width, label="CPU")
+    rects2 = ax.bar(x + width / 2, gpu_times, width, label="GPU")
+
+    # Opis osi i tytuł
+    ax.set_ylabel("Czas działania (ms)")
+    ax.set_title(f"Porównanie czasów: CPU vs GPU - {name} {vertex} nodes, prob {prob}")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+
+    max_time = max(cpu_times[0], gpu_times[0])
+    min_time = min(cpu_times[0], gpu_times[0])
+
+    if max_time / min_time > 5:
+        ax.set_yscale("log")
+        ax.set_ylabel("Czas działania (ms) [skala logarytmiczna]")
+    else:
+        ax.set_yscale("linear")
+        ax.set_ylabel("Czas działania (ms)")
+
+    ax.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
+    ax.legend()
+
+    # Dodanie wartości nad słupkami
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(
+                f"{height:.2f}",
+                xy=(rect.get_x() + rect.get_width() / 2, height),
+                xytext=(0, 5),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+            )
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=300)
+    plt.show()
+    return

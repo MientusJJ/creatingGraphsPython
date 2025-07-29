@@ -20,6 +20,7 @@ class GraphGenerator:
         seed: int = 42,
         graph_type: str = "random",
         new: bool = True,
+        self_loops: bool = False,
     ):
         self._graph_type = graph_type.lower()
         self._nodes = nodes
@@ -35,7 +36,7 @@ class GraphGenerator:
                 if self._graph_type in not_allowed_self_loops_graphs
                 else nx.Graph()
             )
-        if self._graph_type == "random":
+        if self._graph_type == "random" or self_loops == True:
             self._add_self_loops()
 
     def show_adjacency_matrix(self) -> None:
@@ -152,8 +153,8 @@ class GraphGenerator:
     def get_graph(self) -> nx.Graph:
         return self._G
 
-    def save_graph(self, path: str | None = None) -> None:
-        base_dir = DIR
+    def save_graph(self, test: bool = True, path: str | None = None) -> None:
+        base_dir = DIR + "/tests" if test else DIR
         if path:
             filename = f"graph_{self._graph_type}_nodes={self._nodes}_p={self._edge_prob:.2f}_seed={self._seed}_{path}.json"
         else:

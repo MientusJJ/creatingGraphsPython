@@ -17,7 +17,7 @@ class CountOnes(CountGraph):
         super().__init__(graph, enum)
 
     def multiply_until_filled_cpu(self) -> tuple[str, str, int, int]:
-        current_matrix = self._adj_matrix.astype(np.float16).copy()
+        current_matrix = self._adj_matrix.astype(np.float32).copy()
         steps = 0
         start_time = time.time()
         while np.any(current_matrix != 1):
@@ -25,12 +25,12 @@ class CountOnes(CountGraph):
             np.minimum(current_matrix, 1, out=current_matrix)
             steps += 1
         end_time = (time.time() - start_time) * ms
-        return "cpu", f"{end_time:.3f} ms", steps + 1, steps
+        return "cpu", f"{end_time:.3f}", steps + 1, steps
 
     @requires_gpu
     def multiply_until_filled_gpu(self) -> tuple[str, str, int, int]:
 
-        adj_matrix = self._adj_tensor.to(torch.float16)
+        adj_matrix = self._adj_tensor.to(torch.float32)
         current_matrix = adj_matrix.clone()
         one_tensor = torch.tensor(
             1.0, dtype=current_matrix.dtype, device=current_matrix.device
@@ -45,4 +45,4 @@ class CountOnes(CountGraph):
 
         elapsed = (time.time() - start_time) * ms
         print(steps + 1)
-        return "gpu (torch)", f"{elapsed:.3f} ms", steps + 1, steps
+        return "gpu (torch)", f"{elapsed:.3f}", steps + 1, steps
