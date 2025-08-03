@@ -53,7 +53,6 @@ class DynamicReachAbility(Dynamic):
         self._add_primes_to_vector(new_data)
         self._update_matrix()
         bx = self._inverse_one_vector(new_data, indx, axis, False)
-        print(bx.shape)
         if axis == 0:
             self._graph_n_adj = apply_single_row_update(
                 self._graph_n_adj, indx, bx, self._p
@@ -76,7 +75,6 @@ class DynamicReachAbility(Dynamic):
             )
         elif axis == 1:
             a_i = self._adj_tensor[:, indx]
-            print(a_i.shape)
             a_i = new_data - a_i
             new_data2 = self._graph_n_adj.matmul(a_i.view(-1, 1)) % self._p
             self._adj_tensor[:, indx] = (self._adj_tensor[:, indx] + new_data).clamp_(
@@ -91,7 +89,7 @@ class DynamicReachAbility(Dynamic):
         a_i[i] = (new_data - a_i[i] + self._p) % self._p
         a_i = dense_to_sparse(a_i.view(-1, 1))
         new_data2 = multiply_sparse_rows_D(self._graph_n_adj, a_i, self._p)
-        adj_matrix = self._m_matrix.clone()
+        adj_matrix = self._m_matrix
         eye = self._eye(self._adj_tensor.shape[0])
         adj_matrix.add_(eye)
         new_data2 = torch.matmul(adj_matrix, new_data2) % self._p
@@ -99,12 +97,16 @@ class DynamicReachAbility(Dynamic):
         return new_data2.squeeze()
 
     def _inverse_one_vector(
-        self, new_data: torch.Tensor |int, indx: int, axis: int, cell : int | bool = False
+        self,
+        new_data: torch.Tensor | int,
+        indx: int,
+        axis: int,
+        cell: int | bool = False,
     ) -> torch.Tensor:
         if cell is False:
             new_data = self._prepare_new_new_data(new_data, indx, axis)
         else:
-            new_data = self._prepare_new_data_one_cell(new_data, indx,cell)
+            new_data = self._prepare_new_data_one_cell(new_data, indx, cell)
         bi = new_data[indx].item() + 1
         denom = pow_number(bi, self._p - 2, self._p)
         new_data = new_data.to(np_array_to_tensor_mapping(self._type_of_data))
@@ -130,10 +132,8 @@ class DynamicReachAbility(Dynamic):
         self._m_matrix = self._create_matrix_from_scratch(self._adj_tensor.shape[0], 0)
 
     def update_one_cell(self, i: int, j: int, value: Any):
-        new_data = self._zeros(self._adj_tensor.shape[0])
-        new_data[i] = value
         bx = self._inverse_one_vector(value, j, 1, i)
-        adj_matrix = self._m_matrix.clone()
+        adj_matrix = self._m_matrix
         eye = self._eye(self._adj_tensor.shape[0])
         adj_matrix.add_(eye)
         self._m_matrix = apply_single_column_update(
@@ -163,7 +163,7 @@ class DynamicReachAbility(Dynamic):
         return self._multiplicationN1M()[s, t].item() != 0
 
     def _multiplicationN1M(self) -> torch.Tensor:
-        adj_matrix = self._m_matrix.clone()
+        adj_matrix = self._m_matrix
         eye = self._eye(self._adj_tensor.shape[0])
         adj_matrix.add_(eye)
 

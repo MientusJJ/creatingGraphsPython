@@ -1,7 +1,6 @@
-from typing import Any
+
 
 import numpy as np
-import tensorflow as tf
 import networkx as nx
 import time
 
@@ -32,6 +31,7 @@ class CountOnesBinSearch(CountGraph):
             next_matrix = np.minimum(np.dot(current_matrix, current_matrix), 1)
             mults += 1
             matrices.update({steps: current_matrix})
+
             if is_filled(next_matrix):
                 break
             current_matrix = next_matrix

@@ -1,5 +1,4 @@
 import numpy as np
-import tensorflow as tf
 import networkx as nx
 import time
 
@@ -42,6 +41,7 @@ class CountOnes(CountGraph):
             current_matrix = torch.matmul(current_matrix, adj_matrix)
             current_matrix = torch.minimum(current_matrix, one_tensor)
             steps += 1
+
 
         elapsed = (time.time() - start_time) * ms
         print(steps + 1)

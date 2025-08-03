@@ -7,7 +7,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random
 
-from tensorflow.python.ops.summary_ops_v2 import graph
 
 from Helper import DIR, not_allowed_self_loops_graphs
 
@@ -71,6 +70,9 @@ class GraphGenerator:
                 G.add_nodes_from(range(self._nodes))
                 for i in range(self._nodes - 1):
                     G.add_edge(i, i + 1)
+            case "empty":
+                G = nx.DiGraph()
+                G.add_nodes_from(range(self._nodes))
             case _:
                 raise ValueError(
                     "Unknown graph type. Choose from: random, grid, tree, complete, dag,, path_dag."
@@ -154,7 +156,7 @@ class GraphGenerator:
         return self._G
 
     def save_graph(self, test: bool = True, path: str | None = None) -> None:
-        base_dir = DIR + "/tests" if test else DIR
+        base_dir = DIR + "/tests/ResultsDynamic/Graphs/Dags" if test else DIR
         if path:
             filename = f"graph_{self._graph_type}_nodes={self._nodes}_p={self._edge_prob:.2f}_seed={self._seed}_{path}.json"
         else:
@@ -196,22 +198,26 @@ class GraphGenerator:
         return graph
 
     @staticmethod
-    def load_graph_stanford(filename: str) -> GraphGenerator:
+    def load_graph_stanford(filename: str, undirected : bool = False) -> GraphGenerator:
 
         G = nx.Graph()
 
         with open(filename, "r") as f:
             for line in f:
                 if line.startswith("#"):
-                    continue  # Ignorujemy linie komentarza
+                    continue
                 parts = line.strip().split()
                 if len(parts) == 2:
                     node1, node2 = map(int, parts)
                     G.add_edge(node1, node2)
+                    if undirected:
+                        G.add_edge(node2, node1)
 
-        # Informacja o wczytanym grafie
         num_nodes = G.number_of_nodes()
         num_edges = G.number_of_edges()
+        components = list(nx.connected_components(G))
+        num_components = len(components)
+        print(num_components)
         print(f"✅ Loaded Stanford graph with {num_nodes} nodes and {num_edges} edges.")
 
         # Tworzymy obiekt GraphGenerator z wczytanym grafem

@@ -234,3 +234,71 @@
 #         return sparse_row_matmul_sparse_D(C,I, D, p, tol)
 #     else:
 #         return sparse_col_matmul_sparse_D(C,I, D, p, tol)
+# mainFolder = "tests/ResultsDynamic"
+# mapa = {
+#     "sankowski": ["dag"],
+#     "sherman": ["random","dag"]
+# }
+# for key, value in mapa.items():
+#     for x in value:
+#         folder = os.path.join(os.path.join(DIR,mainFolder), "Graphs" if x == "random" else os.path.join("Dags","Graphs"))
+#         print(folder)
+#         files = glob.glob(os.path.join(folder, "*.txt"))
+#         for filename in files:
+#             n,p = extract_nodes_and_p(filename)
+#             if n is None or p is None:
+#                 continue
+#             graph = DynamicReachAbility(GraphGenerator(nodes=n,graph_type="empty").get_graph()) if key == "sankowski" else DynamicSherman(GraphGenerator(nodes=n,graph_type="empty").get_graph())
+#             with open(filename, "r") as infile:
+#                 starttime = time.time()
+#                 for line in infile:
+#                     line = line.strip()
+#                     if line:
+#                         try:
+#                             # Rozbij na część z src i dst
+#                             src_part, dst_part = line.split(", dst:")
+#                             src = int(src_part.replace("src:", "").strip())
+#                             dst_list = ast.literal_eval(dst_part.strip())
+#                             row = torch.zeros(graph._adj_tensor.shape[0], device="cuda")
+#                             row[dst_list] = 1
+#                             graph.update_one_row_or_col(row, src, "row") if key == "sankowski" else graph.add_one_vector(row,src,"row")
+#                             print("OK")
+#                         except Exception as e:
+#                             print(f"Błąd w linii: {line}")
+#                             raise e
+#             endtime = ms * (time.time() - starttime)
+#             with open(os.path.join(os.path.join(os.path.join(DIR, mainFolder), "Graphs" if x == "random" else os.path.join("Dags","Graphs")), "results.txt"), "a",
+#                       encoding="utf-8") as f:
+#                 f.write(f"{key}_{n}_{p}: {endtime}\n" if x == "random" else f"DAG_{key}_{n}_{p}: {endtime}")
+#             print(endtime)
+
+
+#
+# folder = os.path.join(DIR, "tests")  # np. "./dane"
+#     output_folder = os.path.join(DIR, "tests/ResultsDynamic/Graphs/Dags")
+#     json_files = glob.glob(os.path.join(folder, "*.json"))
+#
+#     for filepath in json_files:
+#         filename = os.path.basename(filepath)  # tylko nazwa pliku bez ścieżki
+#         nodes, p = extract_nodes_and_p_preparing_graphs(filename)
+#         print(f"{filename}: nodes={nodes}, p={p}")
+#         adjacency = defaultdict(list)
+#         all_nodes = set()
+#
+#         # Wczytaj dane z JSON-a
+#         with open(filepath, "r") as f:
+#             data = json.load(f)
+#             edges = data.get("edges", [])
+#             for edge in edges:
+#                 if len(edge) == 2:
+#                     src, dst = edge
+#                     if int(src) < int(dst):
+#                         adjacency[src].append(dst)
+#                         all_nodes.update([src, dst])
+#         with open(
+#             os.path.join(output_folder, f"graf_sasiedztwa_{nodes}_{p}_Dag.txt"), "w"
+#         ) as f:
+#             print(f"{nodes}_{p}_dag.txt")
+#             for src in sorted(adjacency):
+#                 dst_list = adjacency[src]
+#                 f.write(f"src: {src}, dst: {dst_list}\n")

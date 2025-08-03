@@ -1,4 +1,5 @@
 import os
+import re
 from enum import Enum
 from typing import TypeAlias, Callable, Any
 
@@ -7,7 +8,10 @@ import torch
 from google.protobuf.text_format import PrintMessage
 from matplotlib import pyplot as plt
 
-DIR = "/mnt/e//Magisterka/Grafy"
+DIR_non_graphs = "/mnt/e//Magisterka"
+DIR = os.path.join(DIR_non_graphs,"Grafy")
+DIR_tests = os.path.join(DIR_non_graphs, "tests/ResultsDynamic/Graphs")
+DIR_stanford = os.path.join(DIR, "tests/stanford")
 ms = 1000
 
 
@@ -35,6 +39,8 @@ Graphs = {
     14: "testgraphMagisterka.json",
     15: "pusty.json",
     16: "graph_dag_nodes=5000_p=0.70_seed=42.json",
+    17: "graph_empty_nodes=1005_p=0.30_seed=42.json",
+    18: "graph_empty_nodes=2500_p=0.30_seed=42.json",
 }
 GraphsTriangles = {
     0: "graph_random_nodes=50_p=0.30_seed=42.json",
@@ -93,7 +99,7 @@ def np_array_to_tensor_mapping(s: TypeAlias) -> TypeAlias:
         raise RuntimeError(f"Bad value for size of float: {s}")
 
 
-not_allowed_self_loops_graphs = {"dag", "path_dag"}
+not_allowed_self_loops_graphs = {"dag", "path_dag", "empty"}
 
 
 def show_adjacency_tensor(
@@ -198,3 +204,23 @@ def comparison_and_plot(
     plt.savefig(filepath, dpi=300)
     plt.show()
     return
+
+
+def extract_nodes_and_p_reading(filename):
+    match = re.search(r"_(\d+)_([0-9]+(?:\.[0-9]+)?)", filename)
+    if match:
+        nodes = int(match.group(1))
+        p = float(match.group(2))
+        return nodes, p
+    else:
+        return None, None
+
+
+def extract_nodes_and_p_preparing_graphs(filename):
+    match = re.search(r"nodes=(\d+)_p=([\d.]+)", filename)
+    if match:
+        nodes = int(match.group(1))
+        p = float(match.group(2))
+        return nodes, p
+    else:
+        return None, None
