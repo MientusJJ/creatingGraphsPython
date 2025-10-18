@@ -17,18 +17,18 @@ class CountTriangles(CountGraph):
     ):
         super().__init__(graph, enum)
 
-    def count_triangles_cpu(self) -> tuple[str, str]:
+    def count_triangles_cpu(self) -> tuple[str,int, str]:
         start_time = time.time()
-        triangles = np.trace(np.linalg.matrix_power(self._adj_matrix, 3)) / 6
+        triangles = int(round(np.trace(np.linalg.matrix_power(self._adj_matrix, 3)) / 6))
         end_time = (time.time() - start_time) * ms
-        return "cpu", f"{end_time:.3f}"
+        return "cpu",triangles, f"{end_time:.3f}"
 
     @requires_gpu
-    def count_triangles_gpu(self) -> tuple[str, str]:
+    def count_triangles_gpu(self) -> tuple[str,int, str]:
         start_time_2 = time.time()
         adj_matrix_cubed = torch.matmul(
             torch.matmul(self._adj_tensor, self._adj_tensor), self._adj_tensor
         )
-        triangles = torch.trace(adj_matrix_cubed) / 6
+        triangles = int((torch.trace(adj_matrix_cubed) / 6).item())
         end_time = (time.time() - start_time_2) * ms
-        return "gpu", f"{end_time:.3f}"
+        return "gpu",triangles, f"{end_time:.3f}"

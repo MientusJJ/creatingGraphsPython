@@ -30,11 +30,8 @@ if __name__ == "__main__":
     else:
         print(f"✅ PyTorch wykrył GPU: {torch.cuda.get_device_name(0)}")
 
-    # Ścieżka do folderu ze zdjęciami PNG
-
-    folder = "/mnt/c//Users/HardPC/Pictures/doGoogle"  # ← ZMIEŃ to na swoją ścieżkę, np. "C:/Users/Jan/Desktop/obrazy"
-
-    images = []
+    graph = GraphGenerator(nodes=2500, graph_type="empty")
+    graph.save_graph()
 
     # Posortuj pliki numerycznie według nazw np. 1.png, 2.png, ..., 15.png
 
@@ -63,7 +60,6 @@ if __name__ == "__main__":
     # # print(A)
     # # graphs = GraphGenerator(10,0.5,54,"dag")
     # # graphs.save_graph()
-    # # TODO
     # # PRZECZYTAJ:
     # # file: // / C: / Users / HardPC / Downloads / dynamic - transitive - closure - via - dynamic - matrix - inverse - extended - a.pdf
     # # strona 4
@@ -163,34 +159,37 @@ if __name__ == "__main__":
     # plt.tight_layout()
     # plt.savefig("triangles-5000.png", dpi=300)
     # plt.show()
-    graphIndex = 15
-
-    graph = GraphGenerator.load_graph(Graphs[graphIndex])
-    # TODO
-    graph_dynamic = DynamicReachAbility(graph.get_graph())
-    show_adjacency_tensor(graph_dynamic._adj_tensor)
-    show_adjacency_tensor(graph_dynamic._graph_n_adj)
-    graph_dynamic.update_one_cell(0, 2, 1)
-    graph_dynamic.update_one_cell(0, 3, 1)
-    graph_dynamic.update_one_cell(1, 3, 1)
-    graph_dynamic.update_one_cell(0, 5, 1)
-    graph_dynamic.update_one_cell(0, 9, 1)
-    graph_dynamic.update_one_cell(1, 8, 1)
-    graph_dynamic.update_one_cell(1, 9, 1)
-    graph_dynamic.update_one_cell(2, 5, 1)
-    graph_dynamic.update_one_cell(2, 6, 1)
-    graph_dynamic.update_one_cell(3, 5, 1)
-    graph_dynamic.update_one_cell(3, 7, 1)
-    graph_dynamic.update_one_cell(3, 9, 1)
-    graph_dynamic.update_one_cell(4, 5, 1)
-    graph_dynamic.update_one_cell(4, 6, 1)
-    graph_dynamic.update_one_cell(5, 8, 1)
-    graph_dynamic.update_one_cell(5, 9, 1)
-    graph_dynamic.update_one_cell(7, 8, 1)
-    graph_dynamic.update_one_cell(8, 9, 1)
-    graph_dynamic._update_matrix()
-    show_adjacency_tensor(graph_dynamic._adj_tensor)
-    show_adjacency_tensor(graph_dynamic._graph_n_adj)
+    # graphIndex = 15
+    #
+    # graph = GraphGenerator.load_graph(Graphs[graphIndex])
+    # # TODO
+    # graph_dynamic = DynamicReachAbility(graph.get_graph())
+    # show_adjacency_tensor(graph_dynamic._adj_tensor)
+    # show_adjacency_tensor(graph_dynamic._graph_n_adj)
+    # start = time.time()
+    # graph_dynamic.update_one_cell(0, 2, 1)
+    # graph_dynamic.update_one_cell(0, 3, 1)
+    # graph_dynamic.update_one_cell(1, 3, 1)
+    # graph_dynamic.update_one_cell(0, 5, 1)
+    # graph_dynamic.update_one_cell(0, 9, 1)
+    # graph_dynamic.update_one_cell(1, 8, 1)
+    # graph_dynamic.update_one_cell(1, 9, 1)
+    # graph_dynamic.update_one_cell(2, 5, 1)
+    # graph_dynamic.update_one_cell(2, 6, 1)
+    # graph_dynamic.update_one_cell(3, 5, 1)
+    # graph_dynamic.update_one_cell(3, 7, 1)
+    # graph_dynamic.update_one_cell(3, 9, 1)
+    # graph_dynamic.update_one_cell(4, 5, 1)
+    # graph_dynamic.update_one_cell(4, 6, 1)
+    # graph_dynamic.update_one_cell(5, 8, 1)
+    # graph_dynamic.update_one_cell(5, 9, 1)
+    # graph_dynamic.update_one_cell(7, 8, 1)
+    # graph_dynamic.update_one_cell(8, 9, 1)
+    # endtime = ms * (time.time() - start)
+    # print(endtime)
+    # graph_dynamic._update_matrix()
+    # show_adjacency_tensor(graph_dynamic._adj_tensor)
+    # show_adjacency_tensor(graph_dynamic._graph_n_adj)
 
     # row_0 = torch.zeros(10, device="cuda")
     # col_3 = torch.zeros(10, device="cuda")
@@ -315,7 +314,7 @@ if __name__ == "__main__":
     # #         print(i, j, graph_sherman.find_path(i, j))
     # end = (time.time() - start) * ms
     # print(end, "ms")
-    graph_sherman._update_matrix()
-
-    show_adjacency_tensor(graph_sherman._graph_n_adj)
-    show_adjacency_tensor(graph_sherman._adj_tensor)
+    # graph_sherman._update_matrix()
+    #
+    # show_adjacency_tensor(graph_sherman._graph_n_adj)
+    # show_adjacency_tensor(graph_sherman._adj_tensor)

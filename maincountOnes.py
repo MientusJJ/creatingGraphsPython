@@ -41,44 +41,48 @@ if __name__ == "__main__":
     #     7: 0.001,
     # }
     # s = set()
-    folder_path = DIR + "/tests"
+    folder_path =  os.path.join(DIR,os.path.join("tests","random"))
     json_filenames = [
         filename for filename in os.listdir(folder_path) if filename.endswith(".json")
     ]
-
+    output_file = os.path.join(DIR,"toTestTriangles.txt")
     # Wypisz każdy jako string
     for name in json_filenames:
-        match = re.search(r"graph_(\w+)_nodes=(\d+)_p=([\d.]+)", name)
+        match = re.search(r"graph_(\w+)_nodes=([\d]+)_p=([\d.]+)", name)
         last_dir = os.path.basename(folder_path.rstrip("/\\"))
         name = os.path.basename(name)
-        name = os.path.join(last_dir, name)
+        name = os.path.join(folder_path, name)
         if match:
             graph_type = match.group(1)
-            nodes = int(match.group(2))
+            nodes = match.group(2)
             p_value = float(match.group(3))
             print(graph_type, nodes, p_value)
             graph = GraphGenerator.load_graph(name)
-            graphTriangles = CountOnesBinSearch(graph.get_graph())
+            graphTriangles = CountTriangles(graph.get_graph())
             print("OK")
             DIR = "countOnesBinSearchPlots"
+            res = graphTriangles.count_triangles_gpu()[1]
             filename = f"countOnesBinSearch{graph_type} {nodes}_prob_{p_value}.png"
             print(
-                "▶ Czas:",
-                datetime.now().strftime("%H:%M:%S"),
+                graph_type,
                 "nodes:",
                 nodes,
                 " prob:",
                 p_value,
+                "res: ",
+                res
             )
-            comparison_and_plot(
-                nodes,
-                p_value,
-                "countOnesBinSearch",
-                DIR,
-                filename,
-                graphTriangles.multiply_until_filled_cpu,
-                graphTriangles.multiply_until_filled_gpu,
-            )
+            with open(output_file, "a") as f:
+                f.write(f"{name} {res}\n")
+            #comparison_and_plot(
+            #    nodes,
+            #    p_value,
+            #    "countOnesBinSearch",
+            #    DIR,
+            #    filename,
+            #    graphTriangles.multiply_until_filled_cpu,
+            #    graphTriangles.multiply_until_filled_gpu,
+            #)
     # for index, p in prob.items():
     #     path = ""
     #     if index in s:
