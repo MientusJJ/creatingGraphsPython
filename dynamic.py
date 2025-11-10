@@ -121,3 +121,36 @@ class Dynamic(CountGraph, ABC):
     @abstractmethod
     def find_path(self, s: int, t: int) -> bool:
         pass
+
+    @abstractmethod
+    def update_one_cell(self, i : int, j : int, value : Any):
+        pass
+    def begin(self,i: int, j: int, value: Any):
+        tensor = self._zeros(self._adj_tensor.shape[0])
+        tensor[i] = value
+        binary_tensor = self._zeros(self._adj_tensor.shape[0])
+        binary_tensor[j] = 1
+        self._graph_n_adj = self._begin_helper(
+            self._graph_n_adj,
+            tensor.clone(),
+            binary_tensor,
+        )
+        self._adj_tensor[:, j] += tensor
+        self._adj_tensor[:, j] %= self._p
+
+
+    def _begin_helper(self, graph_n: torch.Tensor, u: torch.Tensor, v_t: torch.Tensor
+    ):
+        if u.dim() == 1:
+            u = u.view(-1, 1)
+        if v_t.dim() == 1:
+            v_t = v_t.view(1, -1)
+        Au = torch.matmul(graph_n, u) % self._p
+        vA = torch.matmul(v_t, graph_n) % self._p
+        denom = 1.0 + torch.matmul(v_t, Au).squeeze().item()
+        denom %= self._p
+        denom = pow_number(denom, self._p - 2, self._p)
+        outer = torch.matmul(Au, vA) % self._p
+        outer = (graph_n - ((outer * denom) % self._p) + self._p) % self._p
+        return outer
+

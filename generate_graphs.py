@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 import random
 
 
-from Helper import DIR, not_allowed_self_loops_graphs
+from Helper import DIR, not_allowed_self_loops_graphs, DIRMainGraphs
 
 
 class GraphGenerator:
     def __init__(
         self,
         nodes: int = 10,
-        edge_prob: float = 0.3,
+        edge_prob: float = 0.0,
         seed: int = 42,
         graph_type: str = "random",
         new: bool = True,
@@ -179,7 +179,7 @@ class GraphGenerator:
 
     @staticmethod
     def load_graph(filename: str) -> GraphGenerator:
-        filename = os.path.join(DIR, filename)
+        filename = os.path.join(DIRMainGraphs, filename)
         with open(filename, "r") as f:
             data = json.load(f)
 
@@ -198,7 +198,7 @@ class GraphGenerator:
         return graph
 
     @staticmethod
-    def load_graph_stanford(filename: str, undirected : bool = False) -> GraphGenerator:
+    def load_graph_stanford(filename: str, undirected: bool = False) -> GraphGenerator:
 
         G = nx.Graph()
 

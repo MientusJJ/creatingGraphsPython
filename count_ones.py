@@ -42,7 +42,6 @@ class CountOnes(CountGraph):
             current_matrix = torch.minimum(current_matrix, one_tensor)
             steps += 1
 
-
         elapsed = (time.time() - start_time) * ms
         print(steps + 1)
         return "gpu (torch)", f"{elapsed:.3f}", steps + 1, steps

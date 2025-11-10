@@ -42,27 +42,6 @@ class DynamicReachAbility(Dynamic):
     ):
         super().__init__(graph=graph, enum=enum, type_of_data=type_of_data)
 
-    def update_one_row_or_col(
-        self, new_data: torch.Tensor, indx: int, axis: str | int = "row"
-    ):
-        if not isinstance(new_data, torch.Tensor):
-            raise TypeError("new_data must be a torch.Tensor.")
-        axis = self._check_axis(axis)
-        if axis == -1:
-            raise ValueError('axis must be either "row" or "col"')
-        self._add_primes_to_vector(new_data)
-        self._update_matrix()
-        bx = self._inverse_one_vector(new_data, indx, axis, False)
-        if axis == 0:
-            self._graph_n_adj = apply_single_row_update(
-                self._graph_n_adj, indx, bx, self._p
-            )
-        elif axis == 1:
-
-            self._graph_n_adj = apply_single_column_update(
-                self._graph_n_adj, indx, bx, self._p
-            )
-
     def _prepare_new_new_data(
         self, new_data: torch.Tensor, indx: int, axis: int
     ) -> torch.Tensor | None:
@@ -103,10 +82,7 @@ class DynamicReachAbility(Dynamic):
         axis: int,
         cell: int | bool = False,
     ) -> torch.Tensor:
-        if cell is False:
-            new_data = self._prepare_new_new_data(new_data, indx, axis)
-        else:
-            new_data = self._prepare_new_data_one_cell(new_data, indx, cell)
+        new_data = self._prepare_new_new_data(new_data, indx, axis)
         bi = new_data[indx].item() + 1
         denom = pow_number(bi, self._p - 2, self._p)
         new_data = new_data.to(np_array_to_tensor_mapping(self._type_of_data))
@@ -146,6 +122,7 @@ class DynamicReachAbility(Dynamic):
         self._m_matrix = (self._m_matrix + self._p) % self._p
         bx[j] = (bx[j] - 1) % self._p
         self._m_matrix[:, j] = (self._m_matrix[:, j] + bx) % self._p
+        self._adj_tensor[i, j] = (self._adj_tensor[i, j] + value) % self._p
         if self._check_non_zeros() == 2:
             self._update_matrix()
 

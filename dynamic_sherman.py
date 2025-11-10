@@ -1,5 +1,5 @@
 from random import random
-from typing import Dict
+from typing import Dict, Any
 
 import networkx as nx
 import torch
@@ -30,133 +30,29 @@ class DynamicSherman(Dynamic):
         self._map_of_vectors: Dict[int, torch.Tensor] = dict()
         self._map_of_vectors_transpose: Dict[int, torch.Tensor] = dict()
 
-    def add_one_vector(self, new_data: torch.Tensor, index: int, axis: int | str):
-        if not isinstance(new_data, torch.Tensor):
-            raise TypeError("new_data must be a torch.Tensor.")
-        axis = self._check_axis(axis)
-        if axis == -1:
-            raise ValueError('axis must be either "row" or "col"')
-        if self._check_if_axis_is_the_same(axis) or self._check_number_of_vectors():
-            self._update_matrix()
+    def update_one_cell(self, i: int, j: int, value: Any):
+        tensor = self._zeros(self._adj_tensor.shape[0])
+        tensor[i] = value
         binary_tensor = self._zeros(self._adj_tensor.shape[0])
-        binary_tensor[index] = 1
-        if axis == 0:
-            self._col_row_to_change_flag = 0
-            self._set_new_row_in_m_matrix(new_data, index)
-            if index in self._map_of_vectors_transpose:
-                self._map_of_vectors_transpose[index] += new_data
-                self._map_of_vectors[index] += binary_tensor
-            else:
-                self._map_of_vectors_transpose[index] = new_data.clone()
-                self._map_of_vectors[index] = binary_tensor
+        binary_tensor[j] = 1
+        self._update_matrix(tensor, binary_tensor, j)
 
-        else:
-            self._set_new_col_in_m_matrix(new_data, index)
-            self._col_row_to_change_flag = 1
-            if index in self._map_of_vectors:
-                self._map_of_vectors[index] += new_data
-                self._map_of_vectors_transpose[index] += binary_tensor
-            else:
-                self._map_of_vectors[index] = new_data.clone()
-                self._map_of_vectors_transpose[index] = binary_tensor
-
-    def _update_matrix(self):
-        for key, tensor in self._map_of_vectors.items():
-            self._graph_n_adj = self._sherman_morrison(
-                self._graph_n_adj,
-                tensor.clone(),
-                self._map_of_vectors_transpose[key].clone(),
-            )
-            if self._col_row_to_change_flag == 1:
-                self._adj_tensor[:, key] += tensor
-                self._adj_tensor[:, key] %= self._p
-            elif self._col_row_to_change_flag == 0:
-                self._adj_tensor[key, :] += self._map_of_vectors_transpose[key]
-                self._adj_tensor[key, :] %= self._p
-        self._col_row_to_change_flag = -1
-        self._m_matrix = self._create_matrix_from_scratch(self._adj_tensor.shape[0], 0)
-        self._map_of_vectors: Dict[int, torch.Tensor] = dict()
-        self._map_of_vectors_transpose: Dict[int, torch.Tensor] = dict()
-
-    def _set_new_row_in_m_matrix(self, new_data: torch.Tensor, indx: int):
-        bx = self._inverse_one_vector(new_data, indx, 0)
-        adj_matrix = self._m_matrix.clone()
-        eye = self._eye(self._adj_tensor.shape[0])
-        adj_matrix.add_(eye)
-        self._m_matrix = apply_single_row_update(
-            adj_matrix,
-            indx,
-            bx,
-            self._p,
+    def _update_matrix(
+        self, tensor: torch.Tensor, binary_tensor: torch.Tensor, index: int
+    ):
+        self._graph_n_adj = self._sherman_morrison(
+            self._graph_n_adj,
+            tensor.clone(),
+            binary_tensor,
         )
-        self._m_matrix.sub_(eye)
-        self._m_matrix = (self._m_matrix + self._p) % self._p
-        bx[indx] = (bx[indx] - 1) % self._p
-        self._m_matrix[indx, :] = (self._m_matrix[indx, :] + bx) % self._p
-        return
-
-    def _set_new_col_in_m_matrix(self, new_data: torch.Tensor, indx: int):
-        bx = self._inverse_one_vector(new_data, indx, 1)
-        adj_matrix = self._m_matrix.clone()
-        eye = self._eye(self._adj_tensor.shape[0])
-        adj_matrix.add_(eye)
-        self._m_matrix = apply_single_column_update(adj_matrix, indx, bx, self._p)
-        self._m_matrix.sub_(eye)
-        self._m_matrix = (self._m_matrix + self._p) % self._p
-        bx[indx] = (bx[indx] - 1) % self._p
-        self._m_matrix[:, indx] = (self._m_matrix[:, indx] + bx) % self._p
-
-        return
-
-    def _inverse_one_vector(
-        self, new_data: torch.Tensor, indx: int, axis: int
-    ) -> torch.Tensor:
-        new_data = self._prepare_new_data(new_data, indx, axis)
-        bi = new_data[indx].item() + 1
-        denom = pow_number(bi, self._p - 2, self._p)
-        new_data = new_data.to(np_array_to_tensor_mapping(self._type_of_data))
-        bx = torch.empty_like(new_data)
-        for j in range(len(new_data)):
-            if j == indx:
-                bx[j] = denom
-            else:
-                val = (-new_data[j].item() * denom) % self._p
-                val = (val + self._p) % self._p
-                bx[j] = val
-
-        return bx
-
-    def _prepare_new_data(self, new_data: torch.Tensor, indx, axis) -> torch.Tensor:
-        if axis == 1:
-            a_i = self._adj_tensor[:, indx]
-            a_i = new_data - a_i
-            a_i = dense_to_sparse(a_i.view(-1, 1))
-            new_data2 = multiply_sparse_rows_D(self._graph_n_adj, a_i, self._p)
-            adj_matrix = self._m_matrix.clone()
-            eye = self._eye(self._adj_tensor.shape[0])
-            adj_matrix.add_(eye)
-            new_data2 = multiply_sparse_rows_D(adj_matrix, new_data2, self._p)
-        elif axis == 0:
-            a_i = self._adj_tensor[indx, :]
-            a_i = new_data - a_i
-            a_i = dense_to_sparse(a_i.view(1, -1))
-            adj_matrix = self._m_matrix.clone()
-            eye = self._eye(self._adj_tensor.shape[0])
-            adj_matrix.add_(eye)
-            new_data2 = multiply_sparse_cols_C(a_i, adj_matrix, self._p)
-            new_data2 = multiply_sparse_cols_C(new_data2, self._graph_n_adj, self._p)
-        return new_data2.squeeze()
+        self._adj_tensor[:, index] += tensor
+        self._adj_tensor[:, index] %= self._p
 
     def _check_number_of_vectors(self) -> bool:
         return (
             len(self._map_of_vectors) >= self._max_changes
             or len(self._map_of_vectors_transpose) >= self._max_changes
         )
-
-    def _check_if_axis_is_the_same(self, axis: int) -> bool:
-        if self._col_row_to_change_flag != -1 and self._col_row_to_change_flag != axis:
-            return True
-        return False
 
     def _sherman_morrison(
         self, graph_n: torch.Tensor, u: torch.Tensor, v_t: torch.Tensor
@@ -175,16 +71,4 @@ class DynamicSherman(Dynamic):
         return outer
 
     def find_path(self, s: int, t: int) -> bool:
-        if max(len(self._map_of_vectors_transpose), len(self._map_of_vectors)) > 0:
-            return self._find_path_multiplication()[s, t].item() != 0
         return self._graph_n_adj[s, t].item() != 0
-
-    def _find_path_multiplication(self) -> torch.Tensor:
-        adj_matrix = self._m_matrix.clone()
-        eye = self._eye(self._adj_tensor.shape[0])
-        adj_matrix.add_(eye)
-        if self._col_row_to_change_flag == 1:
-            adj_matrix = multiply_sparse_cols_C(adj_matrix, self._graph_n_adj, self._p)
-        elif self._col_row_to_change_flag == 0:
-            adj_matrix = multiply_sparse_rows_D(self._graph_n_adj, adj_matrix, self._p)
-        return adj_matrix

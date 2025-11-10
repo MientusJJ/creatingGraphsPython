@@ -6,7 +6,7 @@ from Helper import GraphCharacter, size_of_cell, np_array_to_tensor_mapping
 
 
 class CountGraph:
-    def __init__(self, graph: nx.Graph, enum: GraphCharacter, type_of_data: str = "32"):
+    def __init__(self, graph: nx.Graph, enum: GraphCharacter = GraphCharacter.Everything, type_of_data: str = "32"):
         self._graph = graph
         self._type_of_data = size_of_cell(type_of_data)
         self._adj_matrix = nx.to_numpy_array(graph, dtype=self._type_of_data)
